@@ -1,49 +1,36 @@
 -- กันการ run แล้ว error เนื่องการมีการสร้าง table หรือ view นั้นๆแล้ว
-DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS booking_Seat;
 DROP TABLE IF EXISTS Booking;
 DROP TABLE IF EXISTS Seat;
-DROP TABLE IF EXISTS Producer;
-DROP TABLE IF EXISTS Movie;
-DROP TABLE IF EXISTS Movie_Genre;
 DROP TABLE IF EXISTS Showtime;
+DROP TABLE IF EXISTS Movie_Genre;
+DROP TABLE IF EXISTS Movie;
+DROP TABLE IF EXISTS Producer;
 DROP TABLE IF EXISTS Theater;
-DROP TABLE IF EXISTS booking_Seat;
+DROP TABLE IF EXISTS Users;
 DROP VIEW IF EXISTS Booking_Detail;
 DROP VIEW IF EXISTS Available_Seats;
 DROP VIEW IF EXISTS Showtime_Detail;
 DROP VIEW if EXISTS Confirmed_Booking;
 DROP INDEX IF EXISTS idx_booking_user;
-DROP INDEX IF EXISTS idx_showtime_movie;
-
-CREATE TABLE Users (
-    user_id INT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) UNIQUE,
-    password VARCHAR(100) NOT NULL,
-    role VARCHAR(10) NOT NULL
-);
-
-CREATE TABLE Booking (
-    booking_id INT PRIMARY KEY,
-    user_id INT NOT NULL,
-    showtime_id INT NOT NULL,
-    status VARCHAR(20) NOt NULL DEFAULT 'Confirmed',
-    booking_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    total_price DECIMAL(10,2), -- แต่ละการจองไม่ได้มีที่นั่งเดียว
-    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE, -- ถ้า user ถูกลบ booking ก็จะถูกลบด้วย
-    FOREIGN KEY (showtime_id) REFERENCES Showtime(showtime_id) ON DELETE CASCADE
-);
-
-CREATE TABLE Seat (
-    seat_number VARCHAR(10) NOT NULL,
-    theater_id INT NOT NULL,
-    PRIMARY KEY (seat_number, theater_id),
-    FOREIGN KEY (theater_id) REFERENCES Theater(theater_id)
-);
+DROP INDEX IF EXISTS idx_showtime_movie; 
 
 CREATE TABLE Producer (
     owner_id INT PRIMARY KEY,
     owner_name VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE Users (
+    user_id INT PRIMARY KEY ,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(100) NOT NULL,
+    role VARCHAR(10) NOT NULL
+);
+
+CREATE TABLE Theater (
+    theater_id INT PRIMARY KEY,
+    theater_name VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE Movie (
@@ -54,10 +41,51 @@ CREATE TABLE Movie (
     FOREIGN KEY (owner_id) REFERENCES Producer(owner_id)
 );
 
+CREATE TABLE Showtime (
+    showtime_id INT PRIMARY KEY,
+    movie_id INT NOT NULL,
+    theater_id INT NOT NULL,
+    show_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, 
+    price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (movie_id) REFERENCES Movie(movie_id) ON DELETE CASCADE, -- ถ้าหนังถูกลบ รอบฉายก็จะถูกลบด้วย
+    FOREIGN KEY (theater_id) REFERENCES Theater(theater_id) ON DELETE CASCADE -- ถ้าโรงหนังถูกลบ รอบฉายก็จะถูกลบด้วย
+);
+
 CREATE TABLE Movie_Genre (
-    movie_id INT,
-    genre VARCHAR(100) NOT NULL,
-    PRIMARY KEY (movie_id, genre),
+    movie_id INT, 
+    genre VARCHAR(100) NOT NULL, 
+    PRIMARY KEY (movie_id, genre) -- หนังแต่ละเรื่องสามารถมี genre ได้หลายอัน แต่ genre เดียวกันไม่ควรซ้ำในหนังเรื่องเดียวกัน,
+    FOREIGN KEY (movie_id) REFERENCES Movie(movie_id) ON DELETE CASCADE -- ถ้าหนังถูกลบ genre ของหนังก็จะถูกลบด้วย
+);
+
+CREATE TABLE Booking (
+    booking_id INT PRIMARY KEY,
+    user_id INT NOT NULL,
+    showtime_id INT NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'Confirmed',
+    booking_date DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    total_price DECIMAL(10,2) NOT NULL, -- แต่ละการจองไม่ได้มีที่นั่งเดียว
+    FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE, -- ถ้า user ถูกลบ booking ก็จะถูกลบด้วย
+    FOREIGN KEY (showtime_id) REFERENCES Showtime(showtime_id) ON DELETE CASCADE -- ถ้ารอบฉายถูกลบ booking ก็จะถูกลบด้วย
+);
+
+CREATE TABLE Seat (
+    seat_number VARCHAR(10) NOT NULL,
+    theater_id INT NOT NULL,
+    PRIMARY KEY (seat_number, theater_id),
+    FOREIGN KEY (theater_id) REFERENCES Theater(theater_id) ON DELETE CASCADE
+);
+
+CREATE TABLE Booking_Seat (
+    booking_id INT NOT NULL,
+    seat_number VARCHAR(10) NOT NULL,
+    theater_id INT NOT NULL,
+    showtime_id INT NOT NULL, -- เพื่อให้รู้ว่าที่นั่งนี้จองในรอบฉายไหน จะได้เช็คได้ว่าที่นั่งนี้ว่างมั้ย
+    PRIMARY KEY (booking_id, seat_number, theater_id),
+    UNIQUE (seat_number, theater_id, showtime_id), -- ที่นั่งเดียวกันในโรงเดียวกัน รอบเดียวกัน จองได้แค่ครั้งเดียว
+    FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE CASCADE, -- ถ้าการจองถูกลบ ที่นั่งใน booking นั้นก็จะถูกลบด้วย
+    FOREIGN KEY (seat_number, theater_id) REFERENCES Seat(seat_number, theater_id) ON DELETE CASCADE, -- ถ้าที่นั่งถูกลบ ข้อมูลการจองที่ใช้ที่นั่งนั้นก็จะถูกลบด้วย
+    FOREIGN KEY (showtime_id) REFERENCES Showtime(showtime_id) ON DELETE CASCADE
 );
 
 -- จะแสดงข้อมูลการจองทั้งหมดของทุก user

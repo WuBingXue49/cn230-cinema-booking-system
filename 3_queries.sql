@@ -16,13 +16,13 @@ PostgreSQL / SQL Server => STRING_AGG(seat_number, ', ' ORDER BY seat_number)
 SELECT showtime_id, title, theater_name, show_date, price, STRING_AGG(seat_number, ', ' ORDER BY seat_number) AS seats
 FROM Showtime_Detail
 WHERE title = 'LoveDoc'
-GROUP By showtime_id, title, theater_name;
+GROUP By showtime_id, title, theater_name , show_date, price; 
 
 -- ดู genre ทั้งหมดของหนังแต่ละเรื่อง
 SELECT m.movie_id, m.title, STRING_AGG(mg.genre, ', ' ORDER BY mg.genre) AS genres
 FROM Movie m
 JOIN Movie_Genre mg ON m.movie_id = mg.movie_id
-GROUP BY m.movie_id;
+GROUP BY m.movie_id , m.title;
 
 -- รายได้รวมของหนังแต่ละเรื่อง
 SELECT m.movie_id, m.title, SUM(cb.total_price) AS total_revenue
@@ -40,12 +40,8 @@ GROUP BY m.movie_id, m.title
 ORDER By total_revenue DESC -- เพิ่มมาจากการหายอดขายรวม เป็นการเรียงจากมากไปน้อย 
 LIMIT 1; -- เอาแค่ลำดับแรก คือที่ยอดขายมากที่สุด
 
-/*
-กรณีมีการ Cancelled ที่นั่ง 
+
+-- กรณีมีการ Cancelled ที่นั่ง 
 UPDATE Booking
 SET status = 'Cancelled'
 WHERE booking_id = ?;
-
-DELETE FROM Booking_Seat
-WHERE booking_id = ?;
-*/
