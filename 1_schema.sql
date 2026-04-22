@@ -54,7 +54,7 @@ CREATE TABLE Showtime (
 CREATE TABLE Movie_Genre (
     movie_id INT, 
     genre VARCHAR(100) NOT NULL, 
-    PRIMARY KEY (movie_id, genre) -- หนังแต่ละเรื่องสามารถมี genre ได้หลายอัน แต่ genre เดียวกันไม่ควรซ้ำในหนังเรื่องเดียวกัน,
+    PRIMARY KEY (movie_id, genre), -- หนังแต่ละเรื่องสามารถมี genre ได้หลายอัน แต่ genre เดียวกันไม่ควรซ้ำในหนังเรื่องเดียวกัน
     FOREIGN KEY (movie_id) REFERENCES Movie(movie_id) ON DELETE CASCADE -- ถ้าหนังถูกลบ genre ของหนังก็จะถูกลบด้วย
 );
 
@@ -88,6 +88,17 @@ CREATE TABLE Booking_Seat (
     FOREIGN KEY (showtime_id) REFERENCES Showtime(showtime_id) ON DELETE CASCADE
 );
 
+-- Payment table: เก็บข้อมูลการชำระเงินของแต่ละ booking
+CREATE TABLE Payment (
+    payment_id INT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL DEFAULT 'Pending',
+    UNIQUE (booking_id), -- แต่ละ booking จะมี payment ได้แค่ครั้งเดียว
+    FOREIGN KEY (booking_id) REFERENCES Booking(booking_id)
+);
+
 -- จะแสดงข้อมูลการจองทั้งหมดของทุก user
 CREATE VIEW Booking_Detail AS 
 SELECT u.user_id, b.booking_id, b.total_price, b.status
@@ -103,10 +114,13 @@ WHERE NOT EXISTS ( -- คัดเอาอันที่ไม่มี bookin
     SELECT 1 -- เช็คว่ามี row มั้ย
     FROM Booking_Seat bs
     JOIN Booking b ON bs.booking_id = b.booking_id -- จะได้ข้อมูลการจองในที่นั่งนี้ โรงนี้ รอบฉายนี้
+    LEFT JOIN Payment p ON b.booking_id = p.booking_id -- ใช้ LEFT JOIN เพื่อจัดการกรณีไม่มีข้อมูล payment
     WHERE bs.seat_number = s.seat_number
-  		AND bs.theater_id = s.theater_id
-  		AND b.showtime_id = st.showtime_id
-  		AND b.status != 'Cancelled'
+        AND bs.theater_id = s.theater_id
+        AND b.showtime_id = st.showtime_id -- ใช้ b.showtime_id ได้เลย ไม่ต้อง JOIN st2
+        AND b.status != 'Cancelled'
+        -- เงื่อนไข Payment: ถ้ามี payment แล้วต้องไม่ใช่ 'Pending' หรือ 'Refunded'
+        AND (p.status IS NULL OR (p.status != 'Pending' AND p.status != 'Refunded'))
 );
 
 -- แสดงข้อมูลรอบฉายของหนังแต่ละเรื่องที่มีที่นั่งว่าง
