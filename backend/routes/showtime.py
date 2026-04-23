@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from db import get_db_connection
 import mysql.connector
 
-showtime_bp = Blueprint('showtime', __name__)
+showtime_bp = Blueprint('showtime', __name__) 
 
 @showtime_bp.route('', methods=['GET'])
 def get_showtime():
@@ -11,33 +11,62 @@ def get_showtime():
     Uses Showtime_Detail VIEW, GROUP seats using GROUP_CONCAT
     """
     title = request.args.get('title')
-    if not title:
-        return jsonify({"status": "error", "message": "Title parameter required"}), 400
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("""
-        SELECT showtime_id, title, theater_name, show_date, price, GROUP_CONCAT(seat_number ORDER BY seat_number SEPARATOR ', ') AS seats
-        FROM Showtime_Detail
-        WHERE title = %s
-        GROUP BY showtime_id, title, theater_name, show_date, price
-    """, (title,))
-    showtimes = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify({"status": "success", "data": showtimes})
+    if title:
+        # get showtime by title
+        title = title.strip()
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT showtime_id, title, theater_name, show_date, price, GROUP_CONCAT(seat_number ORDER BY seat_number SEPARATOR ', ') AS seats
+            FROM Showtime_Detail
+            WHERE title = %s
+            GROUP BY showtime_id, title, theater_name, show_date, price
+        """, (title,))
+        showtimes = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify({"status": "success", "data": showtimes})
+    else:
+        # get all showtimes
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT showtime_id, title, theater_name, show_date, price, GROUP_CONCAT(seat_number ORDER BY seat_number SEPARATOR ', ') AS seats
+            FROM Showtime_Detail   
+            GROUP BY showtime_id, title, theater_name, show_date, price
+        """)
+        showtimes = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        return jsonify({"status": "success", "data": showtimes})
 
-@showtime_bp.route('s', methods=['GET'])
-def get_showtimes():
-    """
-    Get all showtimes
-    """
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM Showtime")
-    showtimes = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify({"status": "success", "data": showtimes})
+    # if not title:
+    #     return jsonify({"status": "error", "message": "Title parameter required"}), 400
+    # conn = get_db_connection()
+    # cursor = conn.cursor(dictionary=True)
+    # cursor.execute("""
+    #     SELECT showtime_id, title, theater_name, show_date, price, GROUP_CONCAT(seat_number ORDER BY seat_number SEPARATOR ', ') AS seats
+    #     FROM Showtime_Detail
+    #     WHERE title = %s
+    #     GROUP BY showtime_id, title, theater_name, show_date, price
+    # """, (title,))
+    # showtimes = cursor.fetchall()
+    # cursor.close()
+    # conn.close()
+    # return jsonify({"status": "success", "data": showtimes})
+
+# @showtime_bp.route('s', methods=['GET']) 
+# def get_showtimes():
+#     """
+#     Get all showtimes
+#     """
+#     conn = get_db_connection()
+#     cursor = conn.cursor(dictionary=True)
+#     cursor.execute("SELECT * FROM Showtime")
+#     showtimes = cursor.fetchall()
+#     cursor.close()
+#     conn.close()
+#     return jsonify({"status": "success", "data": showtimes})
 
 @showtime_bp.route('/<int:showtime_id>', methods=['GET'])
 def get_showtime_by_id(showtime_id):

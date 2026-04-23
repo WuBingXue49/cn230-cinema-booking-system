@@ -4,6 +4,20 @@ import mysql.connector
 
 booking_bp = Blueprint('booking', __name__)
 
+def get_request_json():
+    data = request.get_json(silent=True)
+    if data is None:
+        return None, jsonify({"status": "error", "message": "JSON body required"}), 400
+    return data, None
+
+def fetch_booking(cursor, booking_id):
+    cursor.execute("SELECT booking_id, status FROM Booking WHERE booking_id = %s", (booking_id,))
+    return cursor.fetchone()
+
+def fetch_payment(cursor, booking_id):
+    cursor.execute("SELECT payment_id, status FROM Payment WHERE booking_id = %s", (booking_id,))
+    return cursor.fetchone()
+
 @booking_bp.route('', methods=['POST'])
 def create_booking():
     """
@@ -11,14 +25,20 @@ def create_booking():
     Insert into Booking and Booking_Seat
     Must respect UNIQUE(seat_number, theater_id, showtime_id)
     """
-    data = request.get_json()
+    data, error = get_request_json()
+    if error:
+        return error
+
     user_id = data.get('user_id')
     showtime_id = data.get('showtime_id')
     seats = data.get('seats')  # list of seat_number
     total_price = data.get('total_price')
-    booking_id = data.get('booking_id')  # assume provided
-    if not all([user_id, showtime_id, seats, total_price, booking_id]):
+
+    if user_id is None or showtime_id is None or seats is None or total_price is None:
         return jsonify({"status": "error", "message": "Missing fields"}), 400
+    if not isinstance(seats, list) or not seats:
+        return jsonify({"status": "error", "message": "Seats must be a non-empty list"}), 400
+
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     try:
@@ -29,20 +49,33 @@ def create_booking():
             conn.rollback()
             return jsonify({"status": "error", "message": "Showtime not found"}), 404
         theater_id = showtime['theater_id']
+
         # Check available seats
         cursor.execute("SELECT seat_number FROM Available_Seats WHERE showtime_id = %s AND theater_id = %s", (showtime_id, theater_id))
         available = [row['seat_number'] for row in cursor.fetchall()]
+        available_set = {str(s) for s in available}
         for seat in seats:
-            if str(seat) not in [str(s) for s in available]:
+            if str(seat) not in available_set:
                 conn.rollback()
                 return jsonify({"status": "error", "message": f"Seat {seat} not available"}), 400
-        # Insert booking
-        cursor.execute("INSERT INTO Booking (booking_id, user_id, showtime_id, total_price) VALUES (%s, %s, %s, %s)", (booking_id, user_id, showtime_id, total_price))
+
+        # Insert booking with manually generated booking_id
+        cursor.execute("SELECT COALESCE(MAX(booking_id), 0) + 1 AS next_id FROM Booking")
+        next_booking = cursor.fetchone()
+        booking_id = next_booking['next_id'] if next_booking else 1
+        cursor.execute(
+            "INSERT INTO Booking (booking_id, user_id, showtime_id, total_price) VALUES (%s, %s, %s, %s)",
+            (booking_id, user_id, showtime_id, total_price),
+        )
+
         # Insert seats
         for seat in seats:
-            cursor.execute("INSERT INTO Booking_Seat (booking_id, seat_number, theater_id, showtime_id) VALUES (%s, %s, %s, %s)", (booking_id, seat, theater_id, showtime_id))
+            cursor.execute(
+                "INSERT INTO Booking_Seat (booking_id, seat_number, theater_id, showtime_id) VALUES (%s, %s, %s, %s)",
+                (booking_id, seat, theater_id, showtime_id),
+            )
         conn.commit()
-        return jsonify({"status": "success", "message": "Booking created", "booking_id": booking_id})
+        return jsonify({"status": "success", "message": "Booking created", "booking_id": booking_id}), 201
     except mysql.connector.Error as e:
         conn.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -57,17 +90,25 @@ def cancel_booking(booking_id):
     UPDATE Booking SET status = 'Cancelled'
     """
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE Booking SET status = 'Cancelled' WHERE booking_id = %s", (booking_id,))
-    conn.commit()
-    if cursor.rowcount > 0:
-        cursor.close()
-        conn.close()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = fetch_booking(cursor, booking_id)
+        if not booking:
+            return jsonify({"status": "error", "message": "Booking not found"}), 404
+        if booking['status'] == 'Cancelled':
+            return jsonify({"status": "error", "message": "Booking already cancelled"}), 400
+        if booking['status'] == 'Used':
+            return jsonify({"status": "error", "message": "Cannot cancel a booking that has already been used"}), 400
+
+        cursor.execute("UPDATE Booking SET status = 'Cancelled' WHERE booking_id = %s", (booking_id,))
+        conn.commit()
         return jsonify({"status": "success", "message": "Booking cancelled"})
-    else:
+    except mysql.connector.Error as e:
+        conn.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
         cursor.close()
         conn.close()
-        return jsonify({"status": "error", "message": "Booking not found"}), 404
 
 @booking_bp.route('/user/<int:user_id>', methods=['GET'])
 def get_bookings_by_user(user_id):
@@ -138,22 +179,30 @@ def update_booking_status(booking_id):
     """
     Update booking status
     """
-    data = request.get_json()
+    data, error = get_request_json()
+    if error:
+        return error
+
     status = data.get('status')
     if not status:
         return jsonify({"status": "error", "message": "Status required"}), 400
+
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE Booking SET status = %s WHERE booking_id = %s", (status, booking_id))
-    conn.commit()
-    if cursor.rowcount > 0:
-        cursor.close()
-        conn.close()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = fetch_booking(cursor, booking_id)
+        if not booking:
+            return jsonify({"status": "error", "message": "Booking not found"}), 404
+
+        cursor.execute("UPDATE Booking SET status = %s WHERE booking_id = %s", (status, booking_id))
+        conn.commit()
         return jsonify({"status": "success", "message": "Status updated"})
-    else:
+    except mysql.connector.Error as e:
+        conn.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
         cursor.close()
         conn.close()
-        return jsonify({"status": "error", "message": "Booking not found"}), 404
 
 @booking_bp.route('/<int:booking_id>/use', methods=['PUT'])
 def use_booking(booking_id):
@@ -161,36 +210,54 @@ def use_booking(booking_id):
     Mark booking as Used
     """
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE Booking SET status = 'Used' WHERE booking_id = %s", (booking_id,))
-    conn.commit()
-    if cursor.rowcount > 0:
-        cursor.close()
-        conn.close()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = fetch_booking(cursor, booking_id)
+        if not booking:
+            return jsonify({"status": "error", "message": "Booking not found"}), 404
+        if booking['status'] == 'Cancelled':
+            return jsonify({"status": "error", "message": "Cannot use a cancelled booking"}), 400
+        if booking['status'] == 'Used':
+            return jsonify({"status": "error", "message": "Booking is already marked as used"}), 400
+
+        cursor.execute("UPDATE Booking SET status = 'Used' WHERE booking_id = %s", (booking_id,))
+        conn.commit()
         return jsonify({"status": "success", "message": "Booking marked as used"})
-    else:
+    except mysql.connector.Error as e:
+        conn.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
         cursor.close()
         conn.close()
-        return jsonify({"status": "error", "message": "Booking not found"}), 404
 
 @booking_bp.route('/payments', methods=['POST'])
 def create_payment():
     """
     Create payment
     """
-    data = request.get_json()
-    payment_id = data.get('payment_id')
+    data, error = get_request_json()
+    if error:
+        return error
+
     booking_id = data.get('booking_id')
     amount = data.get('amount')
     status = data.get('status', 'Pending')
-    if not all([payment_id, booking_id, amount]):
+    if booking_id is None or amount is None:
         return jsonify({"status": "error", "message": "Missing fields"}), 400
+
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     try:
+        cursor.execute("SELECT booking_id FROM Booking WHERE booking_id = %s", (booking_id,))
+        if cursor.fetchone() is None:
+            return jsonify({"status": "error", "message": "Booking not found"}), 404
+
+        cursor.execute("SELECT COALESCE(MAX(payment_id), 0) + 1 AS next_id FROM Payment")
+        next_payment = cursor.fetchone()
+        payment_id = next_payment['next_id'] if next_payment else 1
         cursor.execute("INSERT INTO Payment (payment_id, booking_id, amount, status) VALUES (%s, %s, %s, %s)", (payment_id, booking_id, amount, status))
         conn.commit()
-        return jsonify({"status": "success", "message": "Payment created"})
+        return jsonify({"status": "success", "message": "Payment created", "payment_id": payment_id}), 201
     except mysql.connector.Error as e:
         conn.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -204,8 +271,22 @@ def refund_payment(booking_id):
     Refund booking
     """
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
     try:
+        payment = fetch_payment(cursor, booking_id)
+        if not payment:
+            return jsonify({"status": "error", "message": "Payment not found"}), 404
+        if payment['status'] == 'Refunded':
+            return jsonify({"status": "error", "message": "Payment already refunded"}), 400
+        if payment['status'] != 'Confirmed':
+            return jsonify({"status": "error", "message": "Only confirmed payments can be refunded"}), 400
+
+        booking = fetch_booking(cursor, booking_id)
+        if not booking:
+            return jsonify({"status": "error", "message": "Booking not found"}), 404
+        if booking['status'] == 'Used':
+            return jsonify({"status": "error", "message": "Cannot refund a used booking"}), 400
+
         cursor.execute("UPDATE Payment SET status = 'Refunded' WHERE booking_id = %s", (booking_id,))
         cursor.execute("UPDATE Booking SET status = 'Cancelled' WHERE booking_id = %s", (booking_id,))
         conn.commit()
@@ -245,19 +326,27 @@ def staff_update_status(booking_id):
     """
     Staff update booking status
     """
-    data = request.get_json()
+    data, error = get_request_json()
+    if error:
+        return error
+
     status = data.get('status')
     if not status:
         return jsonify({"status": "error", "message": "Status required"}), 400
+
     conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE Booking SET status = %s WHERE booking_id = %s", (status, booking_id))
-    conn.commit()
-    if cursor.rowcount > 0:
-        cursor.close()
-        conn.close()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        booking = fetch_booking(cursor, booking_id)
+        if not booking:
+            return jsonify({"status": "error", "message": "Booking not found"}), 404
+
+        cursor.execute("UPDATE Booking SET status = %s WHERE booking_id = %s", (status, booking_id))
+        conn.commit()
         return jsonify({"status": "success", "message": "Status updated"})
-    else:
+    except mysql.connector.Error as e:
+        conn.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
         cursor.close()
         conn.close()
-        return jsonify({"status": "error", "message": "Booking not found"}), 404
