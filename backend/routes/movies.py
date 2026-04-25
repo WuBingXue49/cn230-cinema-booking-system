@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
 from db import get_db_connection
+from auth import require_role_decorator
 
 movies_bp = Blueprint('movies', __name__)
 
@@ -46,6 +47,7 @@ def get_top_movie():
     return jsonify({"status": "success", "data": top})
 
 @movies_bp.route('/revenue', methods=['GET'])
+@require_role_decorator(['staff', 'admin'])
 def get_movie_revenue():
     """
     Get revenue per movie
@@ -86,6 +88,7 @@ def get_movie_seats(title):
     return jsonify({"status": "success", "data": showtimes})
 
 @movies_bp.route('/admin/revenue/<int:movie_id>', methods=['GET'])
+@require_role_decorator(['admin'])
 def get_revenue_by_movie(movie_id):
     """
     Admin get revenue for specific movie

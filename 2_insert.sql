@@ -25,11 +25,11 @@ INSERT INTO Showtime VALUES (2, 2222, 34, '2026-04-20', 150);
 INSERT INTO Showtime VALUES (3, 1111, 34, '2026-04-21', 200);
 INSERT INTO Showtime VALUES (4, 2222, 23, '2026-04-21', 150);
 
-INSERT INTO Booking(booking_id, user_id, showtime_id, status, booking_date, total_price) VALUES (100, 1, 1, 'Confirmed', '2026-04-17', 400);
-INSERT INTO Booking VALUES (101, 2, 2, 'Pending', '2026-04-10', 150);
-INSERT INTO Booking VALUES (102, 2, 3, 'Pending', '2026-04-10', 200);
-INSERT INTO Booking VALUES (103, 3, 4, 'Cancelled', '2026-04-15', 300);
-INSERT INTO Booking VALUES (104, 1, 4, 'Confirmed', '2026-04-17', 150);
+INSERT INTO Booking VALUES (100, 1, 1, 'Confirmed', '2026-04-17');
+INSERT INTO Booking VALUES (101, 2, 2, 'Pending', '2026-04-10');
+INSERT INTO Booking VALUES (102, 2, 3, 'Pending', '2026-04-10');
+INSERT INTO Booking VALUES (103, 3, 4, 'Cancelled', '2026-04-15');
+INSERT INTO Booking VALUES (104, 1, 4, 'Confirmed', '2026-04-17');
 
 INSERT INTO Booking_Seat VALUES (100, 3, 23, 1);
 INSERT INTO Booking_Seat VALUES (100, 2, 23, 1);

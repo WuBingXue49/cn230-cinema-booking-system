@@ -1,10 +1,12 @@
 from flask import Blueprint, jsonify, request
 from db import get_db_connection
 import mysql.connector
+from auth import require_role_decorator
 
 user_bp = Blueprint('user', __name__)
 
 @user_bp.route('/<int:user_id>', methods=['GET'])
+@require_role_decorator(['staff', 'admin'])
 def get_user(user_id):
     """
     Get user info by user_id
@@ -22,6 +24,7 @@ def get_user(user_id):
         return jsonify({"status": "error", "message": "User not found"}), 404
 
 @user_bp.route('/', methods=['GET'])
+@require_role_decorator(['staff', 'admin'])
 def get_users():
     '''
     Get all users
@@ -39,6 +42,7 @@ def get_users():
     return jsonify({"status": "success", "data": users})
 
 @user_bp.route('/<int:user_id>/bookings', methods=['GET'])
+@require_role_decorator(['staff', 'admin'])
 def get_user_bookings(user_id):
     """
     Get booking history for user
@@ -59,6 +63,7 @@ def get_user_bookings(user_id):
     return jsonify({"status": "success", "data": bookings})
 
 @user_bp.route('/no-booking', methods=['GET'])
+@require_role_decorator(['staff', 'admin'])
 def get_users_no_booking():
     """
     Get customers with no bookings
@@ -78,6 +83,7 @@ def get_users_no_booking():
     return jsonify({"status": "success", "data": users})
 
 @user_bp.route('/', methods=['POST'])
+@require_role_decorator('admin')
 def create_user():
     """
     Create a new user

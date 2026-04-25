@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from db import get_db_connection
 import mysql.connector
+from auth import require_role_decorator
 
 showtime_bp = Blueprint('showtime', __name__) 
 
@@ -40,34 +41,6 @@ def get_showtime():
         conn.close()
         return jsonify({"status": "success", "data": showtimes})
 
-    # if not title:
-    #     return jsonify({"status": "error", "message": "Title parameter required"}), 400
-    # conn = get_db_connection()
-    # cursor = conn.cursor(dictionary=True)
-    # cursor.execute("""
-    #     SELECT showtime_id, title, theater_name, show_date, price, GROUP_CONCAT(seat_number ORDER BY seat_number SEPARATOR ', ') AS seats
-    #     FROM Showtime_Detail
-    #     WHERE title = %s
-    #     GROUP BY showtime_id, title, theater_name, show_date, price
-    # """, (title,))
-    # showtimes = cursor.fetchall()
-    # cursor.close()
-    # conn.close()
-    # return jsonify({"status": "success", "data": showtimes})
-
-# @showtime_bp.route('s', methods=['GET']) 
-# def get_showtimes():
-#     """
-#     Get all showtimes
-#     """
-#     conn = get_db_connection()
-#     cursor = conn.cursor(dictionary=True)
-#     cursor.execute("SELECT * FROM Showtime")
-#     showtimes = cursor.fetchall()
-#     cursor.close()
-#     conn.close()
-#     return jsonify({"status": "success", "data": showtimes})
-
 @showtime_bp.route('/<int:showtime_id>', methods=['GET'])
 def get_showtime_by_id(showtime_id):
     """
@@ -97,7 +70,8 @@ def get_available_seats(showtime_id):
     conn.close()
     return jsonify({"status": "success", "data": seats})
 
-@showtime_bp.route('s', methods=['POST'])
+@showtime_bp.route('', methods=['POST'])
+@require_role_decorator('admin')
 def create_showtime():
     """
     Admin create showtime
@@ -124,6 +98,7 @@ def create_showtime():
         conn.close()
 
 @showtime_bp.route('/<int:showtime_id>', methods=['PUT'])
+@require_role_decorator('admin')
 def update_showtime(showtime_id):
     """
     Admin update showtime
@@ -149,6 +124,7 @@ def update_showtime(showtime_id):
         return jsonify({"status": "error", "message": "Showtime not found"}), 404
 
 @showtime_bp.route('/<int:showtime_id>', methods=['DELETE'])
+@require_role_decorator('admin')
 def delete_showtime(showtime_id):
     """
     Admin delete showtime

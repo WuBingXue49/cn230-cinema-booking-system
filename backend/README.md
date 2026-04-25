@@ -33,13 +33,13 @@
 ### Booking Management
 - GET /bookings - Get all bookings
 - GET /bookings/<id> - Get booking detail
-- POST /bookings - Create booking (body: user_id, showtime_id, seats[], total_price, booking_id)
+- POST /bookings - Create booking (body: user_id, showtime_id, seats[])
 - PUT /bookings/<id>/status - Update booking status
 - PUT /bookings/<id>/cancel - Cancel booking
 - PUT /bookings/<id>/use - Mark booking as Used
 
 ### Payment Management
-- POST /bookings/payments - Create payment
+- POST /bookings/payments - Create payment (body: booking_id)
 - PUT /bookings/payments/<booking_id>/refund - Refund booking
 
 ### Staff Features
@@ -69,6 +69,8 @@ curl "http://localhost:5000/users/no-booking"
 
 # Create user
 curl -X POST http://localhost:5000/users \
+  -H "user_id:5" \
+  -H "role:admin" \
   -H "Content-Type: application/json" \
   -d '{"user_id":6, "name":"New User", "email":"new@example.com", "password":"pass123", "role":"customer"}'
 ```
@@ -89,16 +91,22 @@ curl "http://localhost:5000/movies/LoveDoc/seats"
 
 # Create showtime (Admin)
 curl -X POST http://localhost:5000/showtimes \
+  -H "user_id:5" \
+  -H "role:admin" \
   -H "Content-Type: application/json" \
   -d '{"showtime_id":5, "movie_id":1111, "theater_id":23, "show_date":"2026-04-22 14:00:00", "price":250.00}'
 
 # Update showtime (Admin)
 curl -X PUT http://localhost:5000/showtimes/5 \
+  -H "user_id:5" \
+  -H "role:admin" \
   -H "Content-Type: application/json" \
   -d '{"movie_id":1111, "theater_id":23, "show_date":"2026-04-22 16:00:00", "price":300.00}'
 
 # Delete showtime (Admin)
-curl -X DELETE http://localhost:5000/showtimes/5
+curl -X DELETE http://localhost:5000/showtimes/5 \
+  -H "user_id:5" \
+  -H "role:admin"
 ```
 
 ### Movie Information
@@ -126,39 +134,53 @@ curl "http://localhost:5000/bookings/100"
 
 # Create booking
 curl -X POST http://localhost:5000/bookings \
+  -H "user_id:1" \
+  -H "role:customer" \
   -H "Content-Type: application/json" \
-  -d '{"user_id":1, "showtime_id":1, "seats":[1,2], "total_price":400, "booking_id":105}'
+  -d '{"user_id":1, "showtime_id":2, "seats":[1]}'
 
 # Update booking status
-curl -X PUT http://localhost:5000/bookings/105/status \
+curl -X PUT http://localhost:5000/bookings/100/status \
   -H "Content-Type: application/json" \
   -d '{"status":"Confirmed"}'
 
 # Cancel booking
-curl -X PUT http://localhost:5000/bookings/105/cancel
+curl -X PUT http://localhost:5000/bookings/100/cancel \
+  -H "user_id:1" \
+  -H "role:customer"
 
 # Mark as used
-curl -X PUT http://localhost:5000/bookings/105/use
+curl -X PUT http://localhost:5000/bookings/100/use \
+  -H "user_id:4" \
+  -H "role:staff"
 ```
 
 ### Payment Management
 ```bash
 # Create payment
 curl -X POST http://localhost:5000/bookings/payments \
+  -H "user_id:1" \
+  -H "role:customer" \
   -H "Content-Type: application/json" \
-  -d '{"payment_id":1005, "booking_id":105, "amount":400, "status":"Confirmed"}'
+  -d '{"booking_id":100}'
 
 # Refund booking
-curl -X PUT http://localhost:5000/bookings/payments/105/refund
+curl -X PUT http://localhost:5000/bookings/payments/100/refund \
+  -H "user_id:5" \
+  -H "role:admin"
 ```
 
 ### Staff Features
 ```bash
 # Check booking status
-curl "http://localhost:5000/bookings/staff/105"
+curl "http://localhost:5000/bookings/staff/100" \
+  -H "user_id:4" \
+  -H "role:staff"
 
 # Update booking status
-curl -X PUT http://localhost:5000/bookings/staff/105/status \
+curl -X PUT http://localhost:5000/bookings/staff/100/status \
+  -H "user_id:4" \
+  -H "role:staff" \
   -H "Content-Type: application/json" \
   -d '{"status":"Confirmed"}'
 ```

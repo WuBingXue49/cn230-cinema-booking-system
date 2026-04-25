@@ -64,7 +64,6 @@ CREATE TABLE Booking (
     showtime_id INT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'Confirmed',
     booking_date DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    total_price DECIMAL(10,2) NOT NULL, -- แต่ละการจองไม่ได้มีที่นั่งเดียว
     FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE, -- ถ้า user ถูกลบ booking ก็จะถูกลบด้วย
     FOREIGN KEY (showtime_id) REFERENCES Showtime(showtime_id) ON DELETE CASCADE -- ถ้ารอบฉายถูกลบ booking ก็จะถูกลบด้วย
 );
@@ -100,27 +99,30 @@ CREATE TABLE Payment (
 );
 
 -- จะแสดงข้อมูลการจองทั้งหมดของทุก user
-CREATE VIEW Booking_Detail AS 
-SELECT u.user_id, b.booking_id, b.total_price, b.status
-FROM Users u 
-JOIN Booking b ON u.user_id = b.user_id; -- idx_booking_user ถูกเรียกเพื่อให้หาข้อมูลได้เร็วขึ้น
+CREATE VIEW Booking_Detail AS
+SELECT u.user_id,
+       b.booking_id,
+       COUNT(bs.seat_number) * st.price AS total_price,
+       b.status
+FROM Users u
+JOIN Booking b ON u.user_id = b.user_id
+JOIN Booking_Seat bs ON b.booking_id = bs.booking_id
+JOIN Showtime st ON b.showtime_id = st.showtime_id
+GROUP BY u.user_id, b.booking_id, b.status, st.price;
 
 -- ค้นหาที่นั่งที่ว่าง
 CREATE VIEW Available_Seats AS
 SELECT s.seat_number, s.theater_id, st.showtime_id
 FROM Seat s
 JOIN Showtime st ON s.theater_id = st.theater_id -- ที่นั่งทุกตัว × ทุกรอบฉาย
-WHERE NOT EXISTS ( -- คัดเอาอันที่ไม่มี booking
-    SELECT 1 -- เช็คว่ามี row มั้ย
+WHERE NOT EXISTS (
+    SELECT 1
     FROM Booking_Seat bs
-    JOIN Booking b ON bs.booking_id = b.booking_id -- จะได้ข้อมูลการจองในที่นั่งนี้ โรงนี้ รอบฉายนี้
-    LEFT JOIN Payment p ON b.booking_id = p.booking_id -- ใช้ LEFT JOIN เพื่อจัดการกรณีไม่มีข้อมูล payment
+    JOIN Booking b ON bs.booking_id = b.booking_id
     WHERE bs.seat_number = s.seat_number
         AND bs.theater_id = s.theater_id
-        AND b.showtime_id = st.showtime_id -- ใช้ b.showtime_id ได้เลย ไม่ต้อง JOIN st2
-        AND b.status != 'Cancelled'
-        -- เงื่อนไข Payment: ถ้ามี payment แล้วต้องไม่ใช่ 'Pending' หรือ 'Refunded'
-        AND (p.status IS NULL OR (p.status != 'Pending' AND p.status != 'Refunded'))
+        AND b.showtime_id = st.showtime_id
+        AND b.status IN ('Pending','Confirmed')
 );
 
 -- แสดงข้อมูลรอบฉายของหนังแต่ละเรื่องที่มีที่นั่งว่าง
