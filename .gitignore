@@ -1,6 +1,8 @@
 # sensitive config
-backend/config.py
 .env
+backend/.env
+backend/venv/
+backend/__pycache__/
 
 # python cache
 __pycache__/
