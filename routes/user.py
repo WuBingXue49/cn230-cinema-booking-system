@@ -115,6 +115,13 @@ def staff_checkin_booking(booking_id):
             return jsonify(
                 {"status": "error", "message": "Booking already checked in"}
             ), 400
+        if booking["status"] != "Confirmed":
+            return jsonify(
+                {
+                    "status": "error",
+                    "message": "Booking must be confirmed (paid) before check-in",
+                }
+            ), 400
 
         cursor.execute(
             "UPDATE Booking SET status = 'Used' WHERE booking_id = %s", (booking_id,)

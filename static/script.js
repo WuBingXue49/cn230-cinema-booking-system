@@ -464,7 +464,7 @@ function renderStaffBookingList(bookings) {
             <p>User: ${b.user_id}</p>
             <p>Showtime: ${b.showtime_id}</p>
             <p>Status: ${b.status}</p>
-            ${b.status !== 'Used' && b.status !== 'Cancelled' ? `<button onclick="staffCheckin(${b.booking_id})">Check-in</button>` : ''}
+            ${b.status === 'Confirmed' ? `<button onclick="staffCheckin(${b.booking_id})">Check-in</button>` : b.status === 'Pending' ? '<p class="info-text">ต้องชำระเงินก่อนเพื่อยืนยันการจอง</p>' : ''}
           </div>
         `).join('')}</div>`;
 }
