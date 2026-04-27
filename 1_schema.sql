@@ -1,4 +1,8 @@
+DROP DATABASE IF EXISTS cinema;
+CREATE DATABASE cinema;
+USE cinema;
 -- กันการ run แล้ว error เนื่องการมีการสร้าง table หรือ view นั้นๆแล้ว
+DROP TABLE IF EXISTS Payment;
 DROP TABLE IF EXISTS booking_Seat;
 DROP TABLE IF EXISTS Booking;
 DROP TABLE IF EXISTS Seat;
@@ -36,6 +40,9 @@ CREATE TABLE Movie (
     owner_id INT NOT NULL,
     title VARCHAR(100) NOT NULL,
     duration INT NOT NULL,
+    description VARCHAR(255),
+    poster_url VARCHAR(255),
+    rating DECIMAL(3,1),
     FOREIGN KEY (owner_id) REFERENCES Producer(owner_id)
 );
 

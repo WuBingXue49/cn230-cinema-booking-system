@@ -1,85 +1,91 @@
-from flask import Flask, Blueprint, request, jsonify, render_template
+import os
+from flask import Flask, request, jsonify, render_template, session
+from dotenv import load_dotenv
 from db import get_db_connection
 from routes.booking import booking_bp
 from routes.showtime import showtime_bp
 from routes.user import user_bp
 from routes.movies import movies_bp
 
-app = Flask(__name__)
+load_dotenv()
 
-app.register_blueprint(booking_bp, url_prefix='/bookings')
-app.register_blueprint(showtime_bp, url_prefix='/showtimes')
-app.register_blueprint(user_bp, url_prefix='/users')
-app.register_blueprint(movies_bp, url_prefix='/movies')
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "super-secret-key")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+app.register_blueprint(booking_bp, url_prefix="/bookings")
+app.register_blueprint(showtime_bp, url_prefix="/showtimes")
+app.register_blueprint(user_bp, url_prefix="/users")
+app.register_blueprint(movies_bp, url_prefix="/movies")
+
 
 @app.route("/")
 def home():
-    print("HOME ROUTE HIT")
     return render_template("index.html")
 
-#ระบบใช้ VIEW ใน database เพื่อคำนวณที่นั่งว่างแบบ real-time โดยไม่ต้องเขียน logic ฝั่ง backend
-@app.route("/book", methods=["POST"])
-def book():
-    data = request.json
 
-    user_id = data.get("user_id")
-    showtime_id = data.get("showtime_id")
-    seats = data.get("seats")
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json(silent=True) or {}
+    email = data.get("email")
+    password = data.get("password")
+    if not email or not password:
+        return jsonify(
+            {"status": "error", "message": "Email and password required"}
+        ), 400
+
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
-    cursor.execute("""
-    SELECT theater_id FROM Showtime WHERE showtime_id = %s
-    """, (showtime_id,))
-    theater = cursor.fetchone()
-    theater_id = theater["theater_id"]
-    showtime_id = data.get("showtime_id")
-    seats = data.get("seats")
-    cursor.execute("""
-        INSERT INTO Booking (user_id, showtime_id, status)
-        VALUES (%s, %s, 'Confirmed')
-    """, (user_id, showtime_id))
-
-    booking_id = cursor.lastrowid
-
-    for seat in seats:
-        cursor.execute("""
-        INSERT INTO Booking_Seat (booking_id, seat_number, theater_id, showtime_id)
-        VALUES (%s, %s, %s, %s)
-    """, (booking_id, seat, theater_id, showtime_id))
-
-    conn.commit()
-
-    return jsonify({
-    "status": "success",
-    "showtime_id": showtime_id,
-    "seats": seats,
-    "booking_id": booking_id
-})
-
-@app.route("/users/<int:user_id>/pending", methods=["GET"])
-def get_pending(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    cursor.execute("""
-        SELECT u.user_id,
-               COUNT(bd.booking_id) AS total_bookings,
-               COALESCE(SUM(bd.total_price), 0) AS total_pending
-        FROM Users u
-        LEFT JOIN Booking_Detail bd 
-            ON u.user_id = bd.user_id 
-            AND bd.status = 'Pending'
-        WHERE u.user_id = %s
-        GROUP BY u.user_id
-    """, (user_id,))
-
-    result = cursor.fetchone()
-
+    cursor.execute(
+        "SELECT user_id, name, role, password FROM Users WHERE email = %s", (email,)
+    )
+    user = cursor.fetchone()
     cursor.close()
     conn.close()
 
-    return jsonify({"data": result})
+    if not user or user["password"] != password:
+        return jsonify({"status": "error", "message": "Invalid email or password"}), 401
+
+    session.clear()
+    session["user_id"] = user["user_id"]
+    session["name"] = user["name"]
+    session["role"] = user["role"]
+
+    return jsonify(
+        {
+            "status": "success",
+            "data": {
+                "user_id": user["user_id"],
+                "name": user["name"],
+                "role": user["role"],
+            },
+        }
+    )
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"status": "success", "message": "Logged out"})
+
+
+@app.route("/auth/me", methods=["GET"])
+def me():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"status": "error", "message": "Not authenticated"}), 401
+    return jsonify(
+        {
+            "status": "success",
+            "data": {
+                "user_id": session.get("user_id"),
+                "name": session.get("name"),
+                "role": session.get("role"),
+            },
+        }
+    )
+
 
 if __name__ == "__main__":
     app.run(debug=True)
