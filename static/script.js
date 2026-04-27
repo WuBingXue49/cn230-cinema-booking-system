@@ -6,6 +6,7 @@ let moviesList = [];
 let theaters = [];
 let selectedSeats = [];
 let currentPending = 0;
+let staffBookings = [];
 
 window.onload = async () => {
   await fetchCurrentUser();
@@ -424,6 +425,7 @@ async function renderStaff() {
   let bookings = [];
   try {
     bookings = await loadAllBookings();
+    staffBookings = bookings;
   } catch (err) {
     console.error('Staff data error', err);
   }
@@ -437,18 +439,50 @@ async function renderStaff() {
       </div>
     </div>
     <section>
+      <h3>Search Booking</h3>
+      <div class="card form-card">
+        <input id="search_booking_id" type="number" placeholder="Enter booking ID" />
+        <button onclick="searchBookingById()">Search</button>
+      </div>
+    </section>
+    <section>
       <h3>Booking Status</h3>
-      ${bookings.length > 0 ? `<div class="card-grid">${bookings.map(b => `
-        <div class="card">
-          <p><strong>Booking #${b.booking_id}</strong></p>
-          <p>User: ${b.user_id}</p>
-          <p>Showtime: ${b.showtime_id}</p>
-          <p>Status: ${b.status}</p>
-          ${b.status !== 'Used' && b.status !== 'Cancelled' ? `<button onclick="staffCheckin(${b.booking_id})">Check-in</button>` : ''}
-        </div>
-      `).join('')}</div>` : '<p>No booking data</p>'}
+      <div id="staff-booking-list">
+        ${renderStaffBookingList(bookings)}
+      </div>
     </section>
   `;
+}
+
+function renderStaffBookingList(bookings) {
+  if (!bookings || bookings.length === 0) {
+    return '<p>No booking data</p>';
+  }
+  return `<div class="card-grid">${bookings.map(b => `
+          <div class="card">
+            <p><strong>Booking #${b.booking_id}</strong></p>
+            <p>User: ${b.user_id}</p>
+            <p>Showtime: ${b.showtime_id}</p>
+            <p>Status: ${b.status}</p>
+            ${b.status !== 'Used' && b.status !== 'Cancelled' ? `<button onclick="staffCheckin(${b.booking_id})">Check-in</button>` : ''}
+          </div>
+        `).join('')}</div>`;
+}
+
+async function searchBookingById() {
+  const bookingId = Number(document.getElementById('search_booking_id')?.value || 0);
+  const listContainer = document.getElementById('staff-booking-list');
+  if (!listContainer) return;
+  if (!bookingId) {
+    listContainer.innerHTML = renderStaffBookingList(staffBookings);
+    return;
+  }
+  const filtered = staffBookings.filter(b => b.booking_id === bookingId);
+  if (filtered.length === 0) {
+    listContainer.innerHTML = `<p>No booking found for ID ${bookingId}</p>`;
+    return;
+  }
+  listContainer.innerHTML = renderStaffBookingList(filtered);
 }
 
 function renderGeneric() {

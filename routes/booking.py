@@ -74,6 +74,15 @@ def create_booking():
                 "SELECT seat_number FROM Seat WHERE seat_number = %s AND theater_id = %s FOR UPDATE",
                 (seat, theater_id),
             )
+            seat_row = cursor.fetchone()
+            if not seat_row:
+                conn.rollback()
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Seat {seat} not found in theater {theater_id}",
+                    }
+                ), 404
 
         placeholders = ",".join(["%s"] * len(seats))
         cursor.execute(
