@@ -6,7 +6,7 @@ from auth import require_role_decorator
 user_bp = Blueprint('user', __name__)
 
 @user_bp.route('/<int:user_id>', methods=['GET'])
-@require_role_decorator(['staff', 'admin'])
+#@require_role_decorator(['staff', 'admin'])
 def get_user(user_id):
     """
     Get user info by user_id

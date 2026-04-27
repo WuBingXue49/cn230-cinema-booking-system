@@ -13,7 +13,7 @@ GROUP BY u.user_id;
 MySQL => GROUP_CONCAT(seat_number ORDER BY seat_number SEPARATOR ', ')
 PostgreSQL / SQL Server => STRING_AGG(seat_number, ', ' ORDER BY seat_number)
 */
-SELECT showtime_id, title, theater_name, show_date, price, STRING_AGG(seat_number, ', ' ORDER BY seat_number) AS seats
+SELECT showtime_id, title, theater_name, show_date, price, GROUP_CONCAT(seat_number ORDER BY seat_number SEPARATOR ', ')
 FROM Showtime_Detail
 WHERE title = 'LoveDoc'
 GROUP By showtime_id, title, theater_name , show_date, price; 

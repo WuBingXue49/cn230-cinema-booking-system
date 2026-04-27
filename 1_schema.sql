@@ -12,8 +12,6 @@ DROP VIEW IF EXISTS Booking_Detail;
 DROP VIEW IF EXISTS Available_Seats;
 DROP VIEW IF EXISTS Showtime_Detail;
 DROP VIEW if EXISTS Confirmed_Booking;
-DROP INDEX IF EXISTS idx_booking_user;
-DROP INDEX IF EXISTS idx_showtime_movie; 
 
 CREATE TABLE Producer (
     owner_id INT PRIMARY KEY,
@@ -143,3 +141,7 @@ CREATE INDEX idx_booking_user ON Booking(user_id);
 
 -- ช่วยหารอบฉายของ movie_id นั้นๆ ได้อย่างรวดเร็ว
 CREATE INDEX idx_showtime_movie ON Showtime(movie_id);
+
+CREATE INDEX idx_booking_showtime ON Booking(showtime_id);
+
+CREATE INDEX idx_payment_booking ON Payment(booking_id);

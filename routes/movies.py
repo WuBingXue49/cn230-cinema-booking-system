@@ -47,7 +47,7 @@ def get_top_movie():
     return jsonify({"status": "success", "data": top})
 
 @movies_bp.route('/revenue', methods=['GET'])
-@require_role_decorator(['staff', 'admin'])
+#@require_role_decorator(['staff', 'admin'])
 def get_movie_revenue():
     """
     Get revenue per movie
@@ -108,3 +108,16 @@ def get_revenue_by_movie(movie_id):
     cursor.close()
     conn.close()
     return jsonify({"status": "success", "data": revenue})
+
+@movies_bp.route("/", methods=["GET"])
+def get_movies():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("SELECT movie_id, title FROM Movie")
+    movies = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return jsonify({"status": "success", "data": movies})

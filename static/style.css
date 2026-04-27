@@ -1,0 +1,29 @@
+body {
+    font-family: Arial;
+    margin: 0;
+    background: #f4f4f4;
+  }
+  
+#app {
+  padding: 20px;
+}
+  
+.card {
+  background: white;
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 8px;
+}
+
+button:disabled {
+  background-color: gray;
+  cursor: not-allowed;
+}
+
+.card {
+  border: 1px solid #ccc;
+  padding: 10px;
+  margin: 10px;
+  border-radius: 10px;
+  width: 200px;
+}
