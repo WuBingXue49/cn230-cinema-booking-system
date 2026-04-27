@@ -1,8 +1,8 @@
 # sensitive config
-# .env
-# backend/.env
-# backend/venv/
 backend/__pycache__/
+1_schema.sql
+2_insert.sql
+3_queries.sql
 
 # python cache
 __pycache__/
